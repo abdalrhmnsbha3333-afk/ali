@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>جدول حصص - أحمد العلي</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
+<style>
+  :root{
+    --bg: #EEF1EA;
+    --surface: #FFFFFF;
+    --border: #D9DFD3;
+    --ink: #202E27;
+    --muted: #647166;
+    --available: #2F6F5E;
+    --available-bg: #E6F1EC;
+    --booked: #8A5A34;
+    --booked-bg: #F5EAE0;
+    --danger: #A63446;
+    --danger-bg: #F7E7E9;
+    --today-ring: #C98A3E;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Tajawal',sans-serif;
+    min-height:100vh;
+    padding-bottom:40px;
+  }
+  header.top{
+    padding:22px 18px 18px;
+    text-align:center;
+    border-bottom:1px solid var(--border);
+    background:var(--surface);
+  }
+  header.top h1{
+    margin:0 0 4px;
+    font-size:22px;
+    font-weight:900;
+    letter-spacing:0;
+  }
+  header.top .today{
+    color:var(--muted);
+    font-size:14px;
+    font-weight:500;
+  }
+  .quick-actions{
+    display:flex;
+    gap:8px;
+    padding:14px 16px 4px;
+    overflow-x:auto;
+    max-width:640px;
+    margin:0 auto;
+  }
+  .quick-btn{
+    flex:1;
+    white-space:nowrap;
+    border:1px solid var(--border);
+    background:var(--surface);
+    color:var(--ink);
+    padding:10px 12px;
+    border-radius:10px;
+    font-family:inherit;
+    font-size:13.5px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .quick-btn.on{
+    background:var(--available);
+    color:#fff;
+    border-color:var(--available);
+  }
+  main{
+    max-width:640px;
+    margin:0 auto;
+    padding:8px 16px 0;
+  }
+  .week-tabs{
+    display:flex;
+    gap:8px;
+    margin:14px 0 6px;
+  }
+  .week-tab{
+    flex:1;
+    padding:10px;
+    text-align:center;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+    color:var(--muted);
+  }
+  .week-tab.active{
+    background:var(--ink);
+    color:#fff;
+    border-color:var(--ink);
+  }
+  .week-actions{
+    display:flex;
+    justify-content:flex-end;
+    margin:8px 0 4px;
+  }
+  .link-btn{
+    background:none;
+    border:none;
+    color:var(--danger);
+    font-family:inherit;
+    font-size:13px;
+    font-weight:700;
+    cursor:pointer;
+    padding:4px 2px;
+  }
+  .day-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    margin:10px 0;
+    overflow:hidden;
+  }
+  .day-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:13px 16px;
+    cursor:pointer;
+  }
+  .day-head.today{
+    box-shadow: inset 3px 0 0 var(--today-ring);
+  }
+  .day-name{
+    font-weight:800;
+    font-size:15.5px;
+  }
+  .day-date{
+    color:var(--muted);
+    font-size:12.5px;
+    font-weight:500;
+    margin-top:2px;
+  }
+  .day-meta{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .day-count{
+    font-size:12px;
+    color:var(--muted);
+    font-weight:700;
+  }
+  .chevron{
+    transition:transform .18s ease;
+    color:var(--muted);
+  }
+  .day-card.open .chevron{ transform:rotate(180deg); }
+  .day-body{
+    display:none;
+    padding:4px 14px 14px;
+    border-top:1px solid var(--border);
+  }
+  .day-card.open .day-body{ display:block; }
+  .day-reset{
+    display:flex;
+    justify-content:flex-end;
+    margin:10px 0 2px;
+  }
+  .slots-grid{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap:8px;
+    margin-top:10px;
+  }
+  .slot{
+    border-radius:10px;
+    padding:9px 4px;
+    text-align:center;
+    font-size:13px;
+    font-weight:700;
+    cursor:pointer;
+    border:1px solid transparent;
+    line-height:1.35;
+  }
+  .slot.available{
+    background:var(--available-bg);
+    color:var(--available);
+    border-color:#c9e2d8;
+  }
+  .slot.booked{
+    background:var(--booked-bg);
+    color:var(--booked);
+    border-color:#e3cdb4;
+  }
+  .slot .student{
+    display:block;
+    font-size:11px;
+    font-weight:500;
+    margin-top:2px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .panel{
+    margin-top:12px;
+    background:var(--bg);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:12px;
+  }
+  .panel h4{
+    margin:0 0 8px;
+    font-size:14px;
+    font-weight:800;
+  }
+  .panel input{
+    width:100%;
+    padding:10px 12px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    font-family:inherit;
+    font-size:14px;
+    margin-bottom:10px;
+  }
+  .panel-actions{
+    display:flex;
+    gap:8px;
+  }
+  .btn{
+    flex:1;
+    padding:10px;
+    border-radius:8px;
+    border:none;
+    font-family:inherit;
+    font-weight:700;
+    font-size:13.5px;
+    cursor:pointer;
+  }
+  .btn.primary{ background:var(--available); color:#fff; }
+  .btn.danger{ background:var(--danger); color:#fff; }
+  .btn.ghost{ background:var(--surface); color:var(--muted); border:1px solid var(--border); }
+  .empty{
+    text-align:center;
+    color:var(--muted);
+    font-size:13.5px;
+    padding:18px 10px;
+  }
+  .list-view{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:14px 16px;
+    margin:10px 0;
+  }
+  .list-view h3{
+    margin:0 0 10px;
+    font-size:15px;
+    font-weight:800;
+  }
+  .list-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:9px 0;
+    border-bottom:1px solid var(--border);
+    font-size:13.5px;
+  }
+  .list-row:last-child{ border-bottom:none; }
+  .list-row .t{ color:var(--muted); font-weight:600; min-width:90px;}
+  .list-row .n{ font-weight:700; flex:1; text-align:center; }
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(20,30,25,.45);
+    display:flex; align-items:center; justify-content:center;
+    padding:20px; z-index:50;
+  }
+  .modal{
+    background:#fff; border-radius:14px; padding:18px; max-width:340px; width:100%;
+  }
+  .modal p{ font-size:14px; margin:0 0 16px; line-height:1.6; }
+  .modal .row{ display:flex; gap:8px; }
+  .loading{
+    text-align:center; padding:60px 20px; color:var(--muted); font-weight:600;
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1>جدول حصص — أحمد العلي</h1>
+  <div class="today" id="todayLabel"></div>
+</header>
+
+<div class="quick-actions">
+  <button class="quick-btn" id="btnTomorrow">حصص الغد المتاحة</button>
+  <button class="quick-btn" id="btnBooked">كل الحصص المحجوزة</button>
+  <button class="quick-btn" id="btnCalendar">الجدول الكامل</button>
+</div>
+
+<main id="app">
+  <div class="loading">جارٍ تحميل الجدول...</div>
+</main>
+
+<script>
+const HOURS = [8,9,10,11,12,13,14,15,16,17,18,19,20]; // start hours, each slot = 1h, last ends 21:00
+const DAY_NAMES = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+
+let bookings = {}; // { 'YYYY-MM-DD': { '08:00': 'اسم الطالب' } }
+let view = 'calendar'; // calendar | tomorrow | booked
+let activeWeek = 0; // 0 or 1
+let openDay = null; // date string currently expanded
+let activeSlot = null; // {date,hour} being booked
+let cancelTarget = null; // {date,hour} being cancelled
+let confirmReset = null; // {type:'day'|'week', payload}
+
+const app = document.getElementById('app');
+const todayLabelEl = document.getElementById('todayLabel');
+
+function pad(n){ return n.toString().padStart(2,'0'); }
+function dateKey(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function hourKey(h){ return `${pad(h)}:00`; }
+function formatHour12(h){
+  const period = h < 12 ? 'ص' : 'م';
+  let hh = h % 12; if(hh===0) hh=12;
+  return `${hh}:٠٠ ${period}`;
+}
+function slotLabel(h){
+  return `${formatHour12(h)} - ${formatHour12(h+1===21?9:(h+1))}`;
+}
+function formatDateAr(d){
+  return d.toLocaleDateString('ar-u-nu-latn', { day:'numeric', month:'long' });
+}
+function isSameDate(a,b){ return dateKey(a)===dateKey(b); }
+
+// Build two work-weeks (Sat–Thu) in natural order, starting from this week's Saturday.
+function buildSchedule(){
+  const now = new Date();
+  now.setHours(0,0,0,0);
+  const daysSinceSaturday = (now.getDay() - 6 + 7) % 7; // Saturday=6
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - daysSinceSaturday);
+
+  const days = [];
+  for(let i=0; i<13; i++){ // 6 days + Friday(skipped) + 6 days = 13 span
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    if(d.getDay() !== 5) days.push(d); // skip Friday
+  }
+  return days; // 12 days total: Sat..Thu, Sat..Thu
+}
+
+let scheduleDays = buildSchedule();
+const today = new Date(); today.setHours(0,0,0,0);
+const tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1);
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA_c6gWl2F4_W8qNok163S2cd6cdX05KLE",
+  authDomain: "letters-feaa2.firebaseapp.com",
+  projectId: "letters-feaa2",
+  storageBucket: "letters-feaa2.firebasestorage.app",
+  messagingSenderId: "1034891789193",
+  appId: "1:1034891789193:web:6ca325db4341e960549758"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const scheduleRef = db.collection('scheduleApp').doc('bookings');
+let suppressNextSnapshot = false; // avoid re-rendering from our own write echo before local state is ready
+
+async function loadData(){
+  try{
+    const snap = await scheduleRef.get();
+    bookings = (snap.exists && snap.data().bookings) ? snap.data().bookings : {};
+  }catch(e){
+    console.error('تعذر تحميل البيانات من قاعدة البيانات', e);
+    bookings = {};
+  }
+  render();
+
+  // Keep in sync live: if booked/cancelled from another device, this screen updates automatically.
+  scheduleRef.onSnapshot((snap)=>{
+    if(suppressNextSnapshot){ suppressNextSnapshot = false; return; }
+    if(snap.exists){
+      bookings = snap.data().bookings || {};
+      render();
+    }
+  }, (err)=>{
+    console.error('تعذر مزامنة البيانات', err);
+  });
+}
+
+async function saveData(){
+  try{
+    suppressNextSnapshot = true;
+    await scheduleRef.set({ bookings, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+  }catch(e){
+    suppressNextSnapshot = false;
+    console.error('تعذر حفظ البيانات', e);
+  }
+}
+
+function bookedCountForDay(dk){
+  const rec = bookings[dk];
+  if(!rec) return 0;
+  return Object.keys(rec).length;
+}
+
+function renderTodayLabel(){
+  todayLabelEl.textContent = 'اليوم: ' + DAY_NAMES[today.getDay()];
+}
+
+function openBookPanel(dk, h){
+  activeSlot = {date:dk, hour:h};
+  cancelTarget = null;
+  render();
+}
+function openCancelPanel(dk, h){
+  cancelTarget = {date:dk, hour:h};
+  activeSlot = null;
+  render();
+}
+function closePanels(){
+  activeSlot = null;
+  cancelTarget = null;
+  render();
+}
+
+function confirmBook(dk, h, name){
+  name = (name||'').trim();
+  if(!name){ return; }
+  if(!bookings[dk]) bookings[dk] = {};
+  bookings[dk][hourKey(h)] = name;
+  activeSlot = null;
+  saveData();
+  render();
+}
+
+function confirmCancel(dk, h){
+  if(bookings[dk]){
+    delete bookings[dk][hourKey(h)];
+    if(Object.keys(bookings[dk]).length===0) delete bookings[dk];
+  }
+  cancelTarget = null;
+  saveData();
+  render();
+}
+
+function askResetDay(dk){
+  confirmReset = {type:'day', dk};
+  render();
+}
+function askResetWeek(weekDays){
+  confirmReset = {type:'week', dates: weekDays.map(d=>dateKey(d))};
+  render();
+}
+function doConfirmedReset(){
+  if(!confirmReset) return;
+  if(confirmReset.type==='day'){
+    delete bookings[confirmReset.dk];
+  } else if(confirmReset.type==='week'){
+    confirmReset.dates.forEach(dk => delete bookings[dk]);
+  }
+  confirmReset = null;
+  saveData();
+  render();
+}
+
+function el(html){
+  const t = document.createElement('template');
+  t.innerHTML = html.trim();
+  return t.content.firstElementChild;
+}
+
+function renderDayCard(d){
+  const dk = dateKey(d);
+  const rec = bookings[dk] || {};
+  const bookedN = Object.keys(rec).length;
+  const isOpen = openDay === dk;
+  const isToday = isSameDate(d, today);
+
+  const card = el(`<div class="day-card ${isOpen?'open':''}"></div>`);
+
+  const head = el(`
+    <div class="day-head ${isToday?'today':''}">
+      <div>
+        <div class="day-name">${DAY_NAMES[d.getDay()]}${isToday?' · اليوم':''}</div>
+      </div>
+      <div class="day-meta">
+        <span class="day-count">${bookedN} محجوزة</span>
+        <span class="chevron">▾</span>
+      </div>
+    </div>
+  `);
+  head.addEventListener('click', ()=>{
+    openDay = isOpen ? null : dk;
+    activeSlot = null; cancelTarget = null;
+    render();
+  });
+  card.appendChild(head);
+
+  const body = el(`<div class="day-body"></div>`);
+
+  const resetRow = el(`<div class="day-reset"><button class="link-btn">تصفير حصص هذا اليوم</button></div>`);
+  resetRow.querySelector('button').addEventListener('click', (e)=>{ e.stopPropagation(); askResetDay(dk); });
+  body.appendChild(resetRow);
+
+  const grid = el(`<div class="slots-grid"></div>`);
+  HOURS.forEach(h=>{
+    const hk = hourKey(h);
+    const studentName = rec[hk];
+    if(studentName){
+      const s = el(`<div class="slot booked">${slotLabel(h)}<span class="student">${escapeHtml(studentName)}</span></div>`);
+      s.addEventListener('click', ()=> openCancelPanel(dk, h));
+      grid.appendChild(s);
+    } else {
+      const s = el(`<div class="slot available">${slotLabel(h)}</div>`);
+      s.addEventListener('click', ()=> openBookPanel(dk, h));
+      grid.appendChild(s);
+    }
+  });
+  body.appendChild(grid);
+
+  if(activeSlot && activeSlot.date===dk){
+    const h = activeSlot.hour;
+    const panel = el(`
+      <div class="panel">
+        <h4>حجز حصة — ${slotLabel(h)}</h4>
+        <input type="text" placeholder="اسم الطالب" id="bookNameInput" />
+        <div class="panel-actions">
+          <button class="btn primary">تأكيد الحجز</button>
+          <button class="btn ghost">إلغاء</button>
+        </div>
+      </div>
+    `);
+    const input = panel.querySelector('#bookNameInput');
+    panel.querySelector('.btn.primary').addEventListener('click', ()=> confirmBook(dk, h, input.value));
+    input.addEventListener('keydown', (e)=>{ if(e.key==='Enter') confirmBook(dk, h, input.value); });
+    panel.querySelector('.btn.ghost').addEventListener('click', closePanels);
+    body.appendChild(panel);
+    setTimeout(()=> input.focus(), 30);
+  }
+
+  if(cancelTarget && cancelTarget.date===dk){
+    const h = cancelTarget.hour;
+    const name = (bookings[dk] && bookings[dk][hourKey(h)]) || '';
+    const panel = el(`
+      <div class="panel">
+        <h4>إلغاء حجز — ${slotLabel(h)}</h4>
+        <p style="font-size:13.5px;color:var(--muted);margin:0 0 12px;">الطالب: ${escapeHtml(name)}. سيعود هذا الوقت متاحًا للحجز.</p>
+        <div class="panel-actions">
+          <button class="btn danger">تأكيد الإلغاء</button>
+          <button class="btn ghost">تراجع</button>
+        </div>
+      </div>
+    `);
+    panel.querySelector('.btn.danger').addEventListener('click', ()=> confirmCancel(dk, h));
+    panel.querySelector('.btn.ghost').addEventListener('click', closePanels);
+    body.appendChild(panel);
+  }
+
+  card.appendChild(body);
+  return card;
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function renderCalendarView(){
+  const wrap = el(`<div></div>`);
+  const weeks = [scheduleDays.slice(0,6), scheduleDays.slice(6,12)];
+
+  const tabs = el(`
+    <div class="week-tabs">
+      <div class="week-tab ${activeWeek===0?'active':''}">الأسبوع الأول</div>
+      <div class="week-tab ${activeWeek===1?'active':''}">الأسبوع الثاني</div>
+    </div>
+  `);
+  tabs.children[0].addEventListener('click', ()=>{ activeWeek=0; openDay=null; closePanels(); });
+  tabs.children[1].addEventListener('click', ()=>{ activeWeek=1; openDay=null; closePanels(); });
+  wrap.appendChild(tabs);
+
+  const weekActions = el(`<div class="week-actions"><button class="link-btn">تصفير كل حصص هذا الأسبوع</button></div>`);
+  weekActions.querySelector('button').addEventListener('click', ()=> askResetWeek(weeks[activeWeek]));
+  wrap.appendChild(weekActions);
+
+  weeks[activeWeek].forEach(d => wrap.appendChild(renderDayCard(d)));
+  return wrap;
+}
+
+function renderTomorrowView(){
+  const wrap = el(`<div class="list-view"></div>`);
+  wrap.appendChild(el(`<h3>الحصص المتاحة غدًا — ${DAY_NAMES[tomorrow.getDay()]}</h3>`));
+  const dk = dateKey(tomorrow);
+  const rec = bookings[dk] || {};
+
+  if(tomorrow.getDay()===5){
+    wrap.appendChild(el(`<div class="empty">غدًا يوم الجمعة، لا يوجد دوام.</div>`));
+    return wrap;
+  }
+  const free = HOURS.filter(h => !rec[hourKey(h)]);
+  if(free.length===0){
+    wrap.appendChild(el(`<div class="empty">لا توجد حصص متاحة غدًا، كل الأوقات محجوزة.</div>`));
+  } else {
+    free.forEach(h=>{
+      const row = el(`<div class="list-row"><span class="t">${slotLabel(h)}</span><span class="n" style="color:var(--available)">متاحة</span></div>`);
+      wrap.appendChild(row);
+    });
+  }
+  return wrap;
+}
+
+function renderBookedView(){
+  const wrap = el(`<div></div>`);
+  const anyBooked = scheduleDays.some(d => bookedCountForDay(dateKey(d)) > 0);
+
+  if(!anyBooked){
+    wrap.appendChild(el(`<div class="list-view"><div class="empty">لا توجد أي حصص محجوزة خلال الأسبوعين القادمين.</div></div>`));
+    return wrap;
+  }
+
+  scheduleDays.forEach((d, idx)=>{
+    const dk = dateKey(d);
+    const rec = bookings[dk];
+    if(!rec || Object.keys(rec).length===0) return;
+    const weekLabel = idx < 6 ? 'الأسبوع الأول' : 'الأسبوع الثاني';
+    const box = el(`<div class="list-view"><h3>${DAY_NAMES[d.getDay()]} — ${weekLabel}</h3></div>`);
+    Object.keys(rec).sort().forEach(hk=>{
+      const h = parseInt(hk.split(':')[0],10);
+      const row = el(`<div class="list-row"><span class="t">${slotLabel(h)}</span><span class="n">${escapeHtml(rec[hk])}</span></div>`);
+      box.appendChild(row);
+    });
+    wrap.appendChild(box);
+  });
+  return wrap;
+}
+
+function renderConfirmModal(){
+  if(!confirmReset) return null;
+  const msg = confirmReset.type==='day'
+    ? 'سيتم حذف كل الحجوزات في هذا اليوم. هل تريد المتابعة؟'
+    : 'سيتم حذف كل الحجوزات في هذا الأسبوع بالكامل. هل تريد المتابعة؟';
+  const overlay = el(`
+    <div class="modal-overlay">
+      <div class="modal">
+        <p>${msg}</p>
+        <div class="row">
+          <button class="btn danger">نعم، تصفير</button>
+          <button class="btn ghost">تراجع</button>
+        </div>
+      </div>
+    </div>
+  `);
+  overlay.querySelector('.btn.danger').addEventListener('click', doConfirmedReset);
+  overlay.querySelector('.btn.ghost').addEventListener('click', ()=>{ confirmReset=null; render(); });
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay){ confirmReset=null; render(); } });
+  return overlay;
+}
+
+function render(){
+  renderTodayLabel();
+  app.innerHTML = '';
+
+  document.getElementById('btnTomorrow').classList.toggle('on', view==='tomorrow');
+  document.getElementById('btnBooked').classList.toggle('on', view==='booked');
+  document.getElementById('btnCalendar').classList.toggle('on', view==='calendar');
+
+  if(view==='tomorrow') app.appendChild(renderTomorrowView());
+  else if(view==='booked') app.appendChild(renderBookedView());
+  else app.appendChild(renderCalendarView());
+
+  const modal = renderConfirmModal();
+  if(modal) document.body.appendChild(modal);
+}
+
+document.getElementById('btnTomorrow').addEventListener('click', ()=>{ view='tomorrow'; render(); });
+document.getElementById('btnBooked').addEventListener('click', ()=>{ view='booked'; render(); });
+document.getElementById('btnCalendar').addEventListener('click', ()=>{ view='calendar'; render(); });
+
+loadData();
+</script>
+</body>
+</html>
